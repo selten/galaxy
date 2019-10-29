@@ -50,7 +50,7 @@ class BaseGitPlugin(ErrorPlugin):
                 ts_url_request = requests.get('http://' + str(tool.tool_shed))
                 self.ts_urls[tool.tool_shed] = ts_url_request.url
             return self.ts_urls[tool.tool_shed]
-        except:
+        except Exception:
             return None
 
     def _get_gitrepo_from_ts(self, job, ts_url):
@@ -64,7 +64,7 @@ class BaseGitPlugin(ErrorPlugin):
                     if isinstance(repoinfo, dict):
                         self.ts_repo_cache[job.tool_id] = repoinfo.get('repository', {}).get('remote_repository_url', None)
             return self.ts_repo_cache[job.tool_id]
-        except:
+        except Exception:
             return None
 
     def _get_issue_cache_key(self, job, ts_repourl):
