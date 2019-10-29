@@ -56,19 +56,19 @@ class GitLabPlugin(BaseGitPlugin):
             self.gitlab.auth()
 
         except ImportError:
-            log.error("GitLab error reporting - Please install python-gitlab to submit bug reports to GitLab.")
+            log.error("GitLab error reporting - Please install python-gitlab to submit bug reports to GitLab.", exc_info=True)
             self.gitlab = None
         except gitlab.GitlabAuthenticationError:
-            log.error("GitLab error reporting - Could not authenticate with GitLab.")
+            log.error("GitLab error reporting - Could not authenticate with GitLab.", exc_info=True)
             self.gitlab = None
         except gitlab.GitlabParsingError:
-            log.error("GitLab error reporting - Could not parse GitLab message.")
+            log.error("GitLab error reporting - Could not parse GitLab message.", exc_info=True)
             self.gitlab = None
         except (gitlab.GitlabConnectionError, gitlab.GitlabHttpError):
-            log.error("GitLab error reporting - Could not connect to GitLab.")
+            log.error("GitLab error reporting - Could not connect to GitLab.", exc_info=True)
             self.gitlab = None
         except gitlab.GitlabError:
-            log.error("GitLab error reporting - General error communicating with GitLab.")
+            log.error("GitLab error reporting - General error communicating with GitLab.", exc_info=True)
             self.gitlab = None
 
     def submit_report(self, dataset, job, tool, **kwargs):
@@ -159,38 +159,32 @@ class GitLabPlugin(BaseGitPlugin):
                                                       self.issue_cache[issue_cache_key][error_title]), 'success')
 
             except gitlab.GitlabCreateError as e:
-                log.error("GitLab error reporting - Could not create the issue on GitLab. "
-                          "Exception information: " + e.message)
+                log.error("GitLab error reporting - Could not create the issue on GitLab.", exc_info=True)
                 return ('Internal Error.', 'danger')
             except gitlab.GitlabOwnershipError as e:
-                log.error("GitLab error reporting - Could not create the issue on GitLab due to ownership issues. "
-                          "Exception information: " + e.message)
+                log.error("GitLab error reporting - Could not create the issue on GitLab due to ownership issues.", exc_info=True)
                 return ('Internal Error.', 'danger')
             except gitlab.GitlabSearchError as e:
-                log.error("GitLab error reporting - Could not find repository on GitLab. "
-                          "Exception information: " + e.message)
+                log.error("GitLab error reporting - Could not find repository on GitLab.", exc_info=True)
                 return ('Internal Error.', 'danger')
             except gitlab.GitlabAuthenticationError as e:
-                log.error("GitLab error reporting - Could not authenticate with GitLab. "
-                          "Exception information: " + e.message)
+                log.error("GitLab error reporting - Could not authenticate with GitLab.", exc_info=True)
                 return ('Internal Error.', 'danger')
             except gitlab.GitlabParsingError as e:
-                log.error("GitLab error reporting - Could not parse GitLab message. "
-                          "Exception information: " + e.message)
+                log.error("GitLab error reporting - Could not parse GitLab message.", exc_info=True)
                 return ('Internal Error.', 'danger')
             except (gitlab.GitlabConnectionError, gitlab.GitlabHttpError) as e:
-                log.error("GitLab error reporting - Could not connect to GitLab. Exception information: " + e.message)
+                log.error("GitLab error reporting - Could not connect to GitLab.", exc_info=True)
                 return ('Internal Error.', 'danger')
             except gitlab.GitlabError as e:
-                log.error("GitLab error reporting - General error communicating with GitLab. "
-                          "Exception information: " + e.message)
+                log.error("GitLab error reporting - General error communicating with GitLab.", exc_info=True)
                 return ('Internal Error.', 'danger')
             except Exception as e:
                 log.error("GitLab error reporting - Error reporting to GitLab had an exception that could not be "
-                          "determined. Exception information: " + e.message)
+                          "determined.", exc_info=True)
                 return ('Internal Error.', 'danger')
         else:
-            log.error("GitLab error reporting - No connection to GitLab. Cannot report error to GitLab.")
+            log.error("GitLab error reporting - No connection to GitLab. Cannot report error to GitLab.", exc_info=True)
             return ('Internal Error.', 'danger')
 
     def _create_issue(self, issue_cache_key, error_title, error_message, project, **kwargs):
