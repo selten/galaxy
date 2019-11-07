@@ -32,6 +32,7 @@ class GitLabPlugin(BaseGitPlugin):
 
         # GitLab settings
         self.gitlab_base_url = kwargs.get('gitlab_base_url', 'https://gitlab.com')
+        self.gitlab_private_token = kwargs.get('gitlab_private_token', "")
         self.git_default_repo_owner = kwargs.get('gitlab_default_repo_owner', False)
         self.git_default_repo_name = kwargs.get('gitlab_default_repo_name', False)
         self.git_default_repo_only = string_as_bool(kwargs.get('gitlab_default_repo_only', True))
@@ -47,12 +48,7 @@ class GitLabPlugin(BaseGitPlugin):
                     'http': os.environ.get('http_proxy'),
                 }
 
-            self.gitlab = gitlab.Gitlab(
-                # Allow running against GL enterprise deployments
-                kwargs.get('gitlab_base_url', 'https://gitlab.com'),
-                private_token=kwargs['gitlab_private_token'],
-                session=session
-            )
+            self.gitlab = self.gitlab_connect()
             self.gitlab.auth()
 
         except ImportError:
@@ -71,11 +67,33 @@ class GitLabPlugin(BaseGitPlugin):
             log.error("GitLab error reporting - General error communicating with GitLab.", exc_info=True)
             self.gitlab = None
 
+    def gitlab_connect(self):
+        import gitlab
+        session = requests.Session()
+        if self.gitlab_use_proxy:
+            session.proxies = {
+                'https': os.environ.get('https_proxy'),
+                'http': os.environ.get('http_proxy'),
+            }
+        
+        return gitlab.Gitlab(
+            # Allow running against GL enterprise deployments
+            self.gitlab_base_url,
+            private_token=self.gitlab_private_token,
+            session=session
+        )
+                
     def submit_report(self, dataset, job, tool, **kwargs):
         """Submit the error report to GitLab
         """
         log.info(self.gitlab)
 
+        # Try to connect beforehand, as we might lose connection
+        if not self.gitlab:
+            self.gitlab = self.gitlab_connect()
+            self.gitlab.auth()
+        
+        # Ensure we are connected to Gitlab
         if self.gitlab:
             # Import GitLab here for the error handling
             import gitlab
