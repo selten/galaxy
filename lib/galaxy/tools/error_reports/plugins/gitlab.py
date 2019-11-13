@@ -39,15 +39,6 @@ class GitLabPlugin(BaseGitPlugin):
         self.gitlab_use_proxy = string_as_bool(kwargs.get('gitlab_allow_proxy', True))
 
         try:
-            import gitlab
-
-            session = requests.Session()
-            if self.gitlab_use_proxy:
-                session.proxies = {
-                    'https': os.environ.get('https_proxy'),
-                    'http': os.environ.get('http_proxy'),
-                }
-
             self.gitlab = self.gitlab_connect()
             self.gitlab.auth()
 
@@ -75,14 +66,14 @@ class GitLabPlugin(BaseGitPlugin):
                 'https': os.environ.get('https_proxy'),
                 'http': os.environ.get('http_proxy'),
             }
-        
+
         return gitlab.Gitlab(
             # Allow running against GL enterprise deployments
             self.gitlab_base_url,
             private_token=self.gitlab_private_token,
             session=session
         )
-                
+
     def submit_report(self, dataset, job, tool, **kwargs):
         """Submit the error report to GitLab
         """
@@ -92,7 +83,7 @@ class GitLabPlugin(BaseGitPlugin):
         if not self.gitlab:
             self.gitlab = self.gitlab_connect()
             self.gitlab.auth()
-        
+
         # Ensure we are connected to Gitlab
         if self.gitlab:
             # Import GitLab here for the error handling
@@ -156,7 +147,7 @@ class GitLabPlugin(BaseGitPlugin):
                     try:
                         # Create a new issue.
                         self._create_issue(issue_cache_key, error_title, error_message, gl_project, gl_userid=gl_userid)
-                    except gitlab.GitlabOwnershipError:
+                    except gitlab.GitlabOwnershipError, gitlab.GitlabGetError:
                         gitlab_projecturl = "/".join([self.git_default_repo_owner, self.git_default_repo_name])
                         gitlab_urlencodedpath = urllib.quote_plus(gitlab_projecturl)
                         # Make sure we are always logged in, then retrieve the GitLab project if it isn't cached.
