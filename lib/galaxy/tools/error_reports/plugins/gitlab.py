@@ -39,6 +39,7 @@ class GitLabPlugin(BaseGitPlugin):
         self.gitlab_use_proxy = string_as_bool(kwargs.get('gitlab_allow_proxy', True))
 
         try:
+            import gitlab
             self.gitlab = self.gitlab_connect()
             self.gitlab.auth()
 
