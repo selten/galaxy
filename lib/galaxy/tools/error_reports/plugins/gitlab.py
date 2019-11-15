@@ -148,11 +148,11 @@ class GitLabPlugin(BaseGitPlugin):
                     try:
                         # Create a new issue.
                         self._create_issue(issue_cache_key, error_title, error_message, gl_project, gl_userid=gl_userid)
-                    except gitlab.GitlabOwnershipError, gitlab.GitlabGetError:
+                    except (gitlab.GitlabOwnershipError, gitlab.GitlabGetError):
                         gitlab_projecturl = "/".join([self.git_default_repo_owner, self.git_default_repo_name])
                         gitlab_urlencodedpath = urllib.quote_plus(gitlab_projecturl)
                         # Make sure we are always logged in, then retrieve the GitLab project if it isn't cached.
-                        self.gitlab.auth()
+                        self.gitlab = self.gitlab_connect()
                         if gitlab_projecturl not in self.git_project_cache:
                             self.git_project_cache[gitlab_projecturl] = self.gitlab.projects.get(gitlab_urlencodedpath)
                         gl_project = self.git_project_cache[gitlab_projecturl]
