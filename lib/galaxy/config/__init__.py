@@ -104,51 +104,61 @@ def find_root(kwargs):
 
 class BaseAppConfiguration(object):
     def _set_config_base(self, config_kwargs):
-        self.sample_config_dir = os.path.join(os.path.dirname(__file__), 'sample')
-        self.config_file = find_config_file('galaxy')
-        # Parse global_conf and save the parser
-        self.global_conf = config_kwargs.get('global_conf')
-        self.global_conf_parser = configparser.ConfigParser()
-        if not self.config_file and self.global_conf and "__file__" in self.global_conf:
-            self.config_file = os.path.join(self.root, self.global_conf['__file__'])
 
-        if self.config_file is None:
-            log.warning("No Galaxy config file found, running from current working directory: %s", os.getcwd())
-        else:
-            try:
-                self.global_conf_parser.read(self.config_file)
-            except (IOError, OSError):
-                raise
-            except Exception:
-                # Not an INI file
-                pass
+        def _set_global_conf():
+            self.config_file = find_config_file('galaxy')
+            self.global_conf = config_kwargs.get('global_conf')
+            self.global_conf_parser = configparser.ConfigParser()
+            if not self.config_file and self.global_conf and "__file__" in self.global_conf:
+                self.config_file = os.path.join(self.root, self.global_conf['__file__'])
 
-        _config_dir = os.path.dirname(self.config_file) if self.config_file else os.getcwd()
-        self.config_dir = config_kwargs.get('config_dir', _config_dir)
-
-        self.data_dir = config_kwargs.get('data_dir')
-        # mutable_config_dir is intentionally not configurable. You can
-        # override individual mutable configs with config options, but they
-        # should be considered Galaxy-controlled data files and will by default
-        # just live in the data dir
-
-        if running_from_source:
-            if self.data_dir is None:
-                self.data_dir = os.path.join(self.root, 'database')
             if self.config_file is None:
-                self.config_dir = os.path.join(self.root, 'config')
-            self.mutable_config_dir = self.config_dir
-            # TODO: do we still need to support ../shed_tools?
-            self.shed_tools_dir = os.path.join(self.data_dir, 'shed_tools')
-        else:
-            if self.data_dir is None:
-                self.data_dir = os.path.join(self.config_dir, 'data')
-            self.mutable_config_dir = os.path.join(self.data_dir, 'config')
+                log.warning("No Galaxy config file found, running from current working directory: %s", os.getcwd())
+            else:
+                try:
+                    self.global_conf_parser.read(self.config_file)
+                except (IOError, OSError):
+                    raise
+                except Exception:
+                    pass  # Not an INI file
+
+        def _set_config_directories():
+            # Set config_dir to value from kwargs OR dirname of config_file OR None
+            _config_dir = os.path.dirname(self.config_file) if self.config_file else None
+            self.config_dir = config_kwargs.get('config_dir', _config_dir)
+            # Make path absolute before using it as base for other paths
+            if self.config_dir:
+                self.config_dir = os.path.abspath(self.config_dir)
+
+            self.data_dir = config_kwargs.get('data_dir')
+            # mutable_config_dir is intentionally not configurable. You can
+            # override individual mutable configs with config options, but they
+            # should be considered Galaxy-controlled data files and will by default
+            # just live in the data dir
+            self.sample_config_dir = os.path.join(os.path.dirname(__file__), 'sample')
+
+            if running_from_source:
+                if self.config_dir is None:
+                    self.config_dir = os.path.join(self.root, 'config')
+                if self.data_dir is None:
+                    self.data_dir = os.path.join(self.root, 'database')
+                self.mutable_config_dir = self.config_dir
+            else:
+                if self.config_dir is None:
+                    self.config_dir = os.getcwd()
+                if self.data_dir is None:
+                    self.data_dir = os.path.join(self.config_dir, 'data')
+                self.mutable_config_dir = os.path.join(self.data_dir, 'config')
+
+            # TODO: do we still need to support ../shed_tools when running_from_source?
             self.shed_tools_dir = os.path.join(self.data_dir, 'shed_tools')
 
-        log.debug("Configuration directory is %s", self.config_dir)
-        log.debug("Data directory is %s", self.data_dir)
-        log.debug("Mutable config directory is %s", self.mutable_config_dir)
+            log.debug("Configuration directory is %s", self.config_dir)
+            log.debug("Data directory is %s", self.data_dir)
+            log.debug("Mutable config directory is %s", self.mutable_config_dir)
+
+        _set_global_conf()
+        _set_config_directories()
 
     def _in_mutable_config_dir(self, path):
         return os.path.join(self.mutable_config_dir, path)
@@ -343,6 +353,7 @@ class GalaxyAppConfiguration(BaseAppConfiguration):
         self.database_engine_options = get_database_engine_options(kwargs)
         self.database_create_tables = string_as_bool(kwargs.get('database_create_tables', 'True'))
         self.database_encoding = kwargs.get('database_encoding')  # Create new databases with this encoding
+        self.database_log_query_counts = string_as_bool(kwargs.get("database_log_query_counts", 'False'))
         self.thread_local_log = None
         if self.enable_per_request_sql_debugging:
             self.thread_local_log = threading.local()
@@ -419,7 +430,6 @@ class GalaxyAppConfiguration(BaseAppConfiguration):
             if len(ip.strip()) > 0
         ]
         self.template_path = os.path.join(self.root, kwargs.get("template_path", "templates"))
-        self.template_cache = self.template_cache_path
         self.job_queue_cleanup_interval = int(kwargs.get("job_queue_cleanup_interval", "5"))
         self.cluster_files_directory = self.resolve_path(self.cluster_files_directory)
 
@@ -438,7 +448,6 @@ class GalaxyAppConfiguration(BaseAppConfiguration):
         # activation_email was used until release_15.03
         activation_email = kwargs.get('activation_email')
         self.email_from = self.email_from or activation_email
-        self.myexperiment_target_url = kwargs.get('my_experiment_target_url', 'www.myexperiment.org')
 
         #  Get the disposable email domains blacklist file and its contents
         self.blacklist_content = None
@@ -802,7 +811,7 @@ class GalaxyAppConfiguration(BaseAppConfiguration):
                 except Exception as e:
                     raise ConfigurationError("Unable to create missing directory: %s\n%s" % (path, unicodify(e)))
         # Create the directories that it makes sense to create
-        for path in (self.new_file_path, self.template_cache, self.ftp_upload_dir,
+        for path in (self.new_file_path, self.template_cache_path, self.ftp_upload_dir,
                      self.library_import_dir, self.user_library_import_dir,
                      self.nginx_upload_store, self.object_store_cache_path):
             self._ensure_directory(path)
@@ -914,7 +923,8 @@ def init_models_from_config(config, map_install_models=False, object_store=None,
         trace_logger=trace_logger,
         use_pbkdf2=config.get_bool('use_pbkdf2', True),
         slow_query_log_threshold=config.slow_query_log_threshold,
-        thread_local_log=config.thread_local_log
+        thread_local_log=config.thread_local_log,
+        log_query_counts=config.database_log_query_counts,
     )
     return model
 
@@ -1090,13 +1100,13 @@ class ConfiguresGalaxyMixin(object):
         self.security = idencoding.IdEncodingHelper(id_secret=self.config.id_secret)
 
     def _configure_tool_shed_registry(self):
-        import tool_shed.tool_shed_registry
+        import galaxy.tool_shed.tool_shed_registry
 
         # Set up the tool sheds registry
         if os.path.isfile(self.config.tool_sheds_config_file):
-            self.tool_shed_registry = tool_shed.tool_shed_registry.Registry(self.config.tool_sheds_config_file)
+            self.tool_shed_registry = galaxy.tool_shed.tool_shed_registry.Registry(self.config.tool_sheds_config_file)
         else:
-            self.tool_shed_registry = tool_shed.tool_shed_registry.Registry()
+            self.tool_shed_registry = galaxy.tool_shed.tool_shed_registry.Registry()
 
     def _configure_models(self, check_migrate_databases=False, check_migrate_tools=False, config_file=None):
         """
@@ -1127,7 +1137,7 @@ class ConfiguresGalaxyMixin(object):
 
         if check_migrate_tools:
             # Alert the Galaxy admin to tools that have been moved from the distribution to the tool shed.
-            from tool_shed.galaxy_install.migrate.check import verify_tools
+            from galaxy.tool_shed.galaxy_install.migrate.check import verify_tools
             verify_tools(self, install_db_url, config_file, install_database_options)
 
         self.model = init_models_from_config(
