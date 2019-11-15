@@ -53,10 +53,25 @@ class ToolsTestCase(api.ApiTestCase):
         assert "upload1" in tool_ids
 
     @skip_without_tool("cat1")
-    def test_search(self):
-        url = self._api_url("tools?q=cat")
-        get_response = get(url).json()
+    def test_search_cat(self):
+        url = self._api_url("tools")
+        payload = dict(q="concat")
+        get_response = get(url, payload).json()
         assert "cat1" in get_response
+
+    @skip_without_tool("trimmer")
+    def test_search_trimmer(self):
+        url = self._api_url("tools")
+        payload = dict(q="leading or trailing characters")
+        get_response = get(url, payload).json()
+        assert "trimmer" in get_response
+
+    @skip_without_tool("Grep1")
+    def test_search_grep(self):
+        url = self._api_url("tools")
+        payload = dict(q="Select lines that match an expression")
+        get_response = get(url, payload).json()
+        assert "Grep1" in get_response
 
     def test_no_panel_index(self):
         index = self._get("tools", data=dict(in_panel=False))
@@ -65,6 +80,15 @@ class ToolsTestCase(api.ApiTestCase):
         # returned.
         tool_ids = [_["id"] for _ in tools_index]
         assert "upload1" in tool_ids
+
+    @skip_without_tool("test_sam_to_bam_conversions")
+    def test_requirements(self):
+        requirements_response = self._get("tools/%s/requirements" % "test_sam_to_bam_conversions", admin=True)
+        self._assert_status_code_is_ok(requirements_response)
+        requirements = requirements_response.json()
+        assert len(requirements) == 1, requirements
+        requirement = requirements[0]
+        assert requirement['name'] == 'samtools', requirement
 
     @skip_without_tool("cat1")
     def test_show_repeat(self):
